@@ -1,4 +1,4 @@
 Тестовое задание админка Docker + FastApi
 
-сборка через терминал docker compose up --build
-локалка http://localhost:8000
+<br>сборка через терминал docker compose up --build
+<br>локалка http://localhost:8000
