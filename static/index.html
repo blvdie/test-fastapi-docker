@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Админка</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    body { 
+        padding: 20px; 
+        background-color: #f8f9fa; 
+    }
+
+    .container { 
+        max-width: 900px; 
+        background: white; 
+        padding: 30px; 
+    }
+
+    .action-btn { 
+        margin-right: 5px; 
+        cursor: pointer; 
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+  <h2 class="mb-4 text-center">Админка</h2>
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <span id="formTitle">Добавить нового пользователя</span>
+    </div>
+    <div class="card-body">
+      <input type="hidden" id="userId"/>
+      <div class="row g-3">
+        <div class="col-md-5">
+          <input type="text" id="userName" class="form-control" placeholder="Имя" required/>
+        </div>
+        <div class="col-md-5">
+          <input type="email" id="userEmail" class="form-control" placeholder="Email" required/>
+        </div>
+        <div class="col-md-2">
+          <button id="saveBtn" class="btn btn-success w-100">Сохранить</button>
+          <button id="cancelBtn" class="btn btn-secondary w-100 d-none">Отмена</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <table class="table table-bordered">
+    <thead class="table-dark">
+      <tr><th>ID</th><th>Имя</th><th>Email</th><th style="width:200px">Действия</th></tr>
+    </thead>
+    <tbody id="usersTableBody"></tbody>
+  </table>
+</div>
+
+<script>
+  const API = '';
+  const $ = id => document.getElementById(id);
+  
+  const form = {
+    id: $('userId'), name: $('userName'), email: $('userEmail'),
+    title: $('formTitle'), save: $('saveBtn'), cancel: $('cancelBtn'),
+    tbody: $('usersTableBody')
+  };
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch(`${API}/users/`);
+      const users = await res.json();
+      renderTable(users);
+    } catch (e) { alert('Ошибка загрузки: ' + e.message); }
+  };
+
+  const renderTable = users => {
+    if (!users.length) {
+      form.tbody.innerHTML = '<tr><td colspan="4" class="text-center">Пользователей нет</td></tr>';
+      return;
+    }
+    
+    form.tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>${u.id}</td><td>${u.name}</td><td>${u.email}</td>
+        <td>
+          <button class="btn btn-sm btn-warning action-btn" data-action="edit" 
+            data-id="${u.id}" data-name="${u.name}" data-email="${u.email}">Изменить</button>
+          <button class="btn btn-sm btn-danger action-btn" data-action="delete" data-id="${u.id}">Удалить</button>
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  const setEditMode = (id, name, email) => {
+    form.id.value = id; form.name.value = name; form.email.value = email;
+    form.title.textContent = `Редактировать пользователя #${id}`;
+    form.save.textContent = 'Обновить';
+    form.save.classList.replace('btn-success', 'btn-warning');
+    form.cancel.classList.remove('d-none');
+  };
+
+  const resetForm = () => {
+    form.id.value = form.name.value = form.email.value = '';
+    form.title.textContent = 'Добавить нового пользователя';
+    form.save.textContent = 'Сохранить';
+    form.save.classList.replace('btn-warning', 'btn-success');
+    form.cancel.classList.add('d-none');
+  };
+
+  const saveUser = async () => {
+    if (!form.name.value.trim() || !form.email.value.trim()) 
+      return alert('Заполните имя и email!');
+
+    const payload = { name: form.name.value, email: form.email.value };
+    const method = form.id.value ? 'PUT' : 'POST';
+    const url = form.id.value ? `${API}/users/${form.id.value}` : `${API}/users/`;
+
+    try {
+      const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Не удалось сохранить');
+      resetForm(); loadUsers();
+    } catch (e) { alert('Ошибка: ' + e.message); }
+  };
+
+  const deleteUser = async id => {
+    if (!confirm('Вы уверены, что хотите удалить пользователя?')) return;
+    try {
+      const res = await fetch(`${API}/users/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Не удалось удалить');
+      if (form.id.value == id) resetForm();
+      loadUsers();
+    } catch (e) { alert('Ошибка: ' + e.message); }
+  };
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action]');
+    if (btn) {
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      
+      if (action === 'edit') {
+        setEditMode(id, btn.dataset.name, btn.dataset.email);
+      } else if (action === 'delete') {
+        deleteUser(id);
+      }
+      return;
+    }
+
+    if (e.target === form.save) saveUser();
+    else if (e.target === form.cancel) resetForm();
+  });
+
+  [form.name, form.email].forEach(input => 
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') saveUser(); })
+  );
+  document.addEventListener('DOMContentLoaded', loadUsers);
+</script>
+</body>
+</html>
